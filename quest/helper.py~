@@ -1,0 +1,94 @@
+#coding:utf-8
+import json
+from datetime import datetime
+from quest.signals import question_submit_done,answer_submit_done,vote_submit_done,follow_question_done
+
+from quest.models import Event,EventContent,Question,Answer,AnswerEvaluation,QustionFollow
+
+
+#def save_event(userid,content,eventtype,add=True,update=True):
+#    event=Event.objects.filter(user__id=userid)
+#    if len(event)>0:
+#        event=event[0]
+#    else:
+#        event=Event(content=[])
+#    obj=json.loads(event.content)
+#    if add:
+#        addtime=datetime.now().strftime("%x %X")
+#        obj.append({"addtime":addtime,"eventtype":eventtype,"content":content})
+#    else:
+#        for op in obj:
+#            if op["optype"]==eventtype and op["content"]["id"]==content["id"]:
+#                if update:
+#                    op["content"]==content
+#                else:
+#                    obj.remove(op)
+#    event.content=json.dumps(obj)
+#    event.user_id=userid
+#    event.save()
+
+
+def save_event(userid,eventtype,content,contentid,add=True,update=True):
+    try:
+        #import pdb;pdb.set_trace()
+        event=Event.objects.filter(user_id=userid,eventtype=eventtype,contentid=contentid)
+        if add:
+            if len(event)>0:
+                event=event[0]
+                event.save()
+            else:
+                event=Event(user_id=userid,eventtype=eventtype,contentid=contentid)
+                event.save()
+            #content=json.dumps(content)
+            #eventcontent=EventContent(event=event,content=content)
+            #eventcontent.save()
+        else:
+            if len(event)>0:
+                #event[0].isdelete=True
+                event[0].delete()
+        return True
+            #event=Event.objects.filter(user_id=userid,eventtype=eventtype,contentid=contentid,isdelete=False).delete()
+    except Exception,e:
+        print e
+        raise Exception
+        return False
+
+def submit_question(obj,user,**kwargs):
+    event_content={"id":obj.id,"title":obj.title,"content":obj.content}
+    save_event(user.id,0,event_content,obj.id)
+
+def update_follwer():
+    pass
+
+def submit_answer(obj,user,question,**kwarg):
+    #question=kwarg.pop('question',None)
+    answer=obj
+    #import pdb;pdb.set_trace()
+    event_content={"id":answer.id,"content":answer.content,"question":{"id":question.id,"title":question.title,"content":\
+            question.content,"opposecount": answer.opposecount,"favorcount":answer.opposecount,"commentcount":answer.commentcount}}
+    save_event(user.id,1,event_content,answer.id)
+
+def vote_submit(instance,user,optype,**kwarg):
+    if optype=="delete":
+         save_event(user.id,3,"",instance,False)
+    else:
+        event_content={"id":instance.id,"content":instance.status,"answer":{"id":instance.answer.id,"content": \
+                instance.answer.content,"opposecount": instance.answer.opposecount,"favorcount":instance.answer.opposecount,\
+                "commentcount":instance.answer.commentcount},"question":{"id":instance.answer.question.id,"title":\
+                instance.answer.question.title,"content":instance.answer.question.content}}
+        save_event(user.id,3,event_content,instance.id)
+
+def follow_question(instance,user,optype,**kwarg):
+    if optype=="delete":
+         save_event(user.id,2,"",instance,False)
+    else:
+        save_event(user.id,2,"",instance.id)
+
+question_submit_done.connect(submit_question,sender=Question)
+answer_submit_done.connect(submit_answer,sender=Answer)
+vote_submit_done.connect(vote_submit,sender=AnswerEvaluation)
+follow_question_done.connect(follow_question,sender=QustionFollow)
+
+        
+
+
